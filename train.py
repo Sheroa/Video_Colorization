@@ -47,8 +47,9 @@ if __name__ == "__main__":
     parser.add_argument('--gan_mode', type = str, default = 'WGAN', help = 'type of GAN: [LSGAN | WGAN], WGAN is recommended')
     parser.add_argument('--additional_training_d', type = int, default = 1, help = 'number of training D more times than G')
     # Dataset parameters
-    parser.add_argument('--task', type = str, default = 'facade', help = 'the specific task of the system')
-    parser.add_argument('--baseroot', type = str, default = 'C:\\Users\\ZHAO Yuzhi\\Desktop\\dataset\\ILSVRC2012_train_256', help = 'color image baseroot')
+    parser.add_argument('--task', type = str, default = 'colorization', help = 'the specific task of the system')
+    parser.add_argument('--baseroot', type = str, default = './img/DAVIS', help = 'color image baseroot')
+    parser.add_argument('--iter_frames', type = int, default = 10, help = 'number of iter_frames')
     opt = parser.parse_args()
 
     # ----------------------------------------

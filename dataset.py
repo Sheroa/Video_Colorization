@@ -16,7 +16,7 @@ class NormalRGBDataset(Dataset):
         ])
 
     def __getitem__(self, index):
-        imgpath = self.baseroot + '\\' + self.imglist[index]            # path of one image
+        imgpath = self.baseroot + '/' + self.imglist[index]            # path of one image
         colorimg = Image.open(imgpath)                                  # read one image
         colorimg = colorimg.convert('RGB')
         img = colorimg.crop((256, 0, 512, 256))
@@ -79,7 +79,7 @@ class MultiFramesDataset(Dataset):
         ])
         # calculate the whole number of each class
         for i, classname in enumerate(self.classlist):
-            for imgname in imglist:
+            for j, imgname in enumerate(imglist):
                 if imgname.split('/')[-2] == classname:
                     self.imgroot[i].append(imgname)
         # raise error
@@ -122,9 +122,8 @@ class MultiFramesDataset(Dataset):
             imgpath = self.baseroot + '/' + self.imgroot[index][i]      # path of one image
             if self.task == 'colorization':
                 l, ab = self.get_rgb(imgpath)
-            in_part.append(l)
-            out_part.append(ab)
-        
+                in_part.append(l)
+                out_part.append(ab)
         return in_part, out_part
     
     def __len__(self):

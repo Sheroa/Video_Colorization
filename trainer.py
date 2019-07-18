@@ -79,7 +79,7 @@ def Pre_train(opt):
     # ----------------------------------------
 
     # Define the class list
-    imglist = utils.get_files(opt.baseroot)
+    imglist = utils.text_readlines('./img/Davis.txt')
     classlist = utils.get_dirs(opt.baseroot)
     '''
     imgnumber = len(imglist) - (len(imglist) % opt.batch_size)
@@ -105,9 +105,22 @@ def Pre_train(opt):
     # For loop training
     for epoch in range(opt.epochs):
         for i, (in_part, out_part) in enumerate(dataloader):
-            for j in range(len(in_part)):
+            for j in range(opt.iter_frames):
+                print(out_part[j].shape)
+                img = out_part[j][0, :, :, :].permute(1, 2, 0).numpy()
+                img = img * 128 + 128
+                img = img.astype(np.uint8)
+                img2 = out_part[j][1, :, :, :].permute(1, 2, 0).numpy()
+                img2 = img2 * 128 + 128
+                img2 = img2.astype(np.uint8)
+                from PIL import Image
+                img = Image.fromarray(img)
+                img2 = Image.fromarray(img2)
+                img.save('1_%d.jpg' % j)
+                img2.save('2_%d.jpg' % j)
+                
                 # To device
-                true_input = in_part[j].cuda()
+                true_input = in_part[j][i].cuda()
                 true_target = out_part[j].cuda()
                 
                 # Train Generator

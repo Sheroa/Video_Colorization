@@ -184,3 +184,7 @@ class GradLoss(nn.Module):
         
         return self.GradLoss_weight * (h_loss + w_loss)
 '''
+'''
+imglist = get_files('/home/alien/Documents/zyz/vid2vidGeneration/img')
+print(imglist)
+'''
