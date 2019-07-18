@@ -78,16 +78,19 @@ def Pre_train(opt):
     #             Network dataset
     # ----------------------------------------
 
-    # Define the image list
-    imglist = utils.get_jpgs(opt.baseroot)
+    # Define the class list
+    imglist = utils.get_files(opt.baseroot)
+    classlist = utils.get_dirs(opt.baseroot)
     '''
     imgnumber = len(imglist) - (len(imglist) % opt.batch_size)
     imglist = imglist[:imgnumber]
     '''
 
     # Define the dataset
-    trainset = dataset.NormalRGBDataset(opt, imglist)
-    print('The overall number of images:', len(trainset))
+    # trainset = dataset.NormalRGBDataset(opt, imglist)
+    trainset = dataset.MultiFramesDataset(opt, imglist, classlist) #train for multi frames
+    # print('The overall number of images:', len(trainset))
+    print('The overall number of classes:', len(trainset))
 
     # Define the dataloader
     dataloader = DataLoader(trainset, batch_size = opt.batch_size, shuffle = True, num_workers = opt.num_workers, pin_memory = True)
@@ -101,39 +104,39 @@ def Pre_train(opt):
     
     # For loop training
     for epoch in range(opt.epochs):
-        for i, (true_input, true_target) in enumerate(dataloader):
+        for i, (in_part, out_part) in enumerate(dataloader):
+            for j in range(len(in_part)):
+                # To device
+                true_input = in_part[j].cuda()
+                true_target = out_part[j].cuda()
+                
+                # Train Generator
+                optimizer_G.zero_grad()
+                fake_target = generator(true_input)
+                
+                # L1 Loss
+                Pixellevel_L1_Loss = criterion_L1(fake_target, true_target)
 
-            # To device
-            true_input = true_input.cuda()
-            true_target = true_target.cuda()
+                # Overall Loss and optimize
+                loss = Pixellevel_L1_Loss
+                loss.backward()
+                optimizer_G.step()
 
-            # Train Generator
-            optimizer_G.zero_grad()
-            fake_target = generator(true_input)
-            
-            # L1 Loss
-            Pixellevel_L1_Loss = criterion_L1(fake_target, true_target)
+                # Determine approximate time left
+                iters_done = epoch * len(dataloader) + i
+                iters_left = opt.epochs * len(dataloader) - iters_done
+                time_left = datetime.timedelta(seconds = iters_left * (time.time() - prev_time))
+                prev_time = time.time()
 
-            # Overall Loss and optimize
-            loss = Pixellevel_L1_Loss
-            loss.backward()
-            optimizer_G.step()
+                # Print log
+                print("\r[Epoch %d/%d] [Batch %d/%d] [Pixellevel L1 Loss: %.4f] Time_left: %s" %
+                    ((epoch + 1), opt.epochs, i, len(dataloader), Pixellevel_L1_Loss.item(), time_left))
 
-            # Determine approximate time left
-            iters_done = epoch * len(dataloader) + i
-            iters_left = opt.epochs * len(dataloader) - iters_done
-            time_left = datetime.timedelta(seconds = iters_left * (time.time() - prev_time))
-            prev_time = time.time()
+                # Save model at certain epochs or iterations
+                save_model(opt, (epoch + 1), (iters_done + 1), len(dataloader), generator)
 
-            # Print log
-            print("\r[Epoch %d/%d] [Batch %d/%d] [Pixellevel L1 Loss: %.4f] Time_left: %s" %
-                ((epoch + 1), opt.epochs, i, len(dataloader), Pixellevel_L1_Loss.item(), time_left))
-
-            # Save model at certain epochs or iterations
-            save_model(opt, (epoch + 1), (iters_done + 1), len(dataloader), generator)
-
-            # Learning rate decrease at certain epochs
-            adjust_learning_rate(opt, (epoch + 1), (iters_done + 1), optimizer_G)
+                # Learning rate decrease at certain epochs
+                adjust_learning_rate(opt, (epoch + 1), (iters_done + 1), optimizer_G)
 
 def Continue_train_LSGAN(opt):
     # ----------------------------------------

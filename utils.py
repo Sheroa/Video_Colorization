@@ -104,6 +104,15 @@ def savetxt(name, loss_log):
     np_loss_log = np.array(loss_log)
     np.savetxt(name, np_loss_log)
 
+def get_dirs(path):
+    ret = []
+    #read a folder, return a list of names of child folders
+    for root, dirs, files in os.walk(path):
+        for name in dirs:
+            if root == path:
+                ret.append(name)
+    return ret
+
 def get_files(path):
     # read a folder, return the complete path
     ret = []
@@ -111,6 +120,7 @@ def get_files(path):
         for filespath in files: 
             ret.append(os.path.join(root,filespath)) 
     return ret
+
 
 def get_jpgs(path):
     # read a folder, return the image name
