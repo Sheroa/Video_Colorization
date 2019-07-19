@@ -1,3 +1,6 @@
 *.jpg
 img/*
+data/*
+models/*
 __pycache__/*
+.vscode/*
