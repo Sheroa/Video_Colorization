@@ -104,7 +104,7 @@ class MultiFramesDataset(Dataset):
         img = Image.open(imgpath)                                       # read one image
         # pre-processing, let all the images are in RGB color space
         img = img.resize((256, 256), Image.ANTIALIAS).convert('RGB')    # PIL Image RGB: R [0, 255], G [0, 255], B [0, 255], order [H, W, C]
-        l = img.convert('L')                                            # PIL Image L: L [0, 255], order [H, W]
+        l = img.convert('L').convert('RGB')                             # PIL Image L: L [0, 255], order [H, W]
         # normalization
         l = self.transform_gray(l)                                      # L, normalized to [-1, 1]
         rgb = self.transform_rgb(img)                                   # rgb, normalized to [-1, 1]

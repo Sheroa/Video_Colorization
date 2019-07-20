@@ -10,7 +10,9 @@ from torch.utils.data import DataLoader
 import torch.backends.cudnn as cudnn
 import dataset
 import utils
-from network.pwcnet import *
+import sys
+sys.path.insert(0, './network')
+from pwcnet import *
 
 def Pre_train(opt):
     # ----------------------------------------
@@ -107,35 +109,20 @@ def Pre_train(opt):
         for iteration, (in_part, out_part) in enumerate(dataloader):
             print('iteration:%d epoch:%d'%(iteration, epoch))
             for iter_frame in range(opt.iter_frames):
-                print(in_part[iter_frame].shape)
-                print(out_part[iter_frame].shape)
-                # print(out_part[j].shape)
-                # img = out_part[j][0, :, :, :].permute(1, 2, 0).numpy()
-                # img = img * 128 + 128
-                # img = img.astype(np.uint8)
-                # img2 = out_part[j][1, :, :, :].permute(1, 2, 0).numpy()
-                # img2 = img2 * 128 + 128
-                # img2 = img2.astype(np.uint8)
-                # from PIL import Image
-                # img = Image.fromarray(img)
-                # img2 = Image.fromarray(img2)
-                # img.save('1_%d.jpg' % j)
-                # img2.save('2_%d.jpg' % j)
-                
                 # To device
                 true_input = in_part[iter_frame].cuda()
                 true_target = out_part[iter_frame].cuda()
+                flow_result = []
 
                 # calculate optical flow
                 if(iter_frame < (opt.iter_frames - 1)):
-                    true_input_next = in_part[(iter_frame + 1)].cuda()
-                    for iter_batch in range(opt.batch_size):
-                        frame_now = true_input[iter_batch]
-                        frame_now = (frame_now + 1) / 2
-                        frame_next = true_input_next[iter_batch]
-                        frame_next = (frame_next + 1) / 2
-                        tensorOutput = PwcEstimate(frame_now, frame_next)
-                        print(tensorOutput.shape)
+                    print(opt.iter_frames)
+                    true_target_next = out_part[(iter_frame + 1)].cuda()
+                    frame_now = (true_target + 1) / 2
+                    frame_next = (true_target_next + 1) / 2
+                    tensorOutput = PwcEstimate(frame_now, frame_next)
+                    flow_result.append(tensorOutput)
+
                 # Train Generator
                 optimizer_G.zero_grad()
                 fake_target = generator(true_input)
@@ -156,7 +143,7 @@ def Pre_train(opt):
 
                 # Print log
                 print("\r[Epoch %d/%d] [Batch %d/%d] [Pixellevel L1 Loss: %.4f] Time_left: %s" %
-                    ((epoch + 1), opt.epochs, i, len(dataloader), Pixellevel_L1_Loss.item(), time_left))
+                    ((epoch + 1), opt.epochs, iteration, len(dataloader), Pixellevel_L1_Loss.item(), time_left))
 
                 # Save model at certain epochs or iterations
                 save_model(opt, (epoch + 1), (iters_done + 1), len(dataloader), generator)

@@ -21,7 +21,7 @@ if __name__ == "__main__":
     parser.add_argument('--cudnn_benchmark', type = bool, default = True, help = 'True for unchanged input data type')
     # Training parameters
     parser.add_argument('--epochs', type = int, default = 10, help = 'number of epochs of training')
-    parser.add_argument('--batch_size', type = int, default = 1, help = 'size of the batches')
+    parser.add_argument('--batch_size', type = int, default = 4, help = 'size of the batches')
     parser.add_argument('--lr_g', type = float, default = 0.0002, help = 'Adam: learning rate for G')
     parser.add_argument('--lr_d', type = float, default = 0.0002, help = 'Adam: learning rate for D')
     parser.add_argument('--b1', type = float, default = 0.5, help = 'Adam: decay of first order momentum of gradient')

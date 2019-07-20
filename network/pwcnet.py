@@ -1,10 +1,9 @@
 import torch
 import math
-import sys
-sys.path.insert(0, './correlation'); import correlation
-
 Backward_tensorGrid = {}
 Backward_tensorPartial = {}
+import sys
+sys.path.insert(0, './network/correlation'); import correlation
 
 def PwcNetBackward(tensorInput, tensorFlow):
 	if str(tensorFlow.size()) not in Backward_tensorGrid:
@@ -219,7 +218,7 @@ class PwcNet(torch.nn.Module):
 
 		self.moduleRefiner = Refiner()
 
-		self.pwc_dc_net('../models/pwcNet-default.pytorch')
+		self.pwc_dc_net('./models/pwcNet-default.pytorch')
 	# end
 
 	def forward(self, tensorFirst, tensorSecond):
@@ -248,28 +247,27 @@ class PwcNet(torch.nn.Module):
 moduleNetwork = PwcNet().cuda().eval()
 
 def PwcEstimate(tensorFirst, tensorSecond):
-	assert(tensorFirst.size(1) == tensorSecond.size(1))
-	assert(tensorFirst.size(2) == tensorSecond.size(2))
-
-	intWidth = tensorFirst.size(2)
-	intHeight = tensorFirst.size(1)
+	B = tensorFirst.size(0)
+	C = tensorFirst.size(1)
+	H = tensorFirst.size(2)
+	W = tensorFirst.size(3)
 
 	# assert(intWidth == 1024) # remember that there is no guarantee for correctness, comment this line out if you acknowledge this and want to continue
 	# assert(intHeight == 436) # remember that there is no guarantee for correctness, comment this line out if you acknowledge this and want to continue
 
-	tensorPreprocessedFirst = tensorFirst.cuda().view(1, 3, intHeight, intWidth)
-	tensorPreprocessedSecond = tensorSecond.cuda().view(1, 3, intHeight, intWidth)
+	tensorPreprocessedFirst = tensorFirst.cuda().view(B, C, H, W)
+	tensorPreprocessedSecond = tensorSecond.cuda().view(B, C, H, W)
 
-	intPreprocessedWidth = int(math.floor(math.ceil(intWidth / 64.0) * 64.0))
-	intPreprocessedHeight = int(math.floor(math.ceil(intHeight / 64.0) * 64.0))
+	intPreprocessedWidth = int(math.floor(math.ceil(W / 64.0) * 64.0))
+	intPreprocessedHeight = int(math.floor(math.ceil(H / 64.0) * 64.0))
 
 	tensorPreprocessedFirst = torch.nn.functional.interpolate(input=tensorPreprocessedFirst, size=(intPreprocessedHeight, intPreprocessedWidth), mode='bilinear', align_corners=False)
 	tensorPreprocessedSecond = torch.nn.functional.interpolate(input=tensorPreprocessedSecond, size=(intPreprocessedHeight, intPreprocessedWidth), mode='bilinear', align_corners=False)
 
-	tensorFlow = 20.0 * torch.nn.functional.interpolate(input=moduleNetwork(tensorPreprocessedFirst, tensorPreprocessedSecond), size=(intHeight, intWidth), mode='bilinear', align_corners=False)
+	tensorFlow = 20.0 * torch.nn.functional.interpolate(input=moduleNetwork(tensorPreprocessedFirst, tensorPreprocessedSecond), size=(H, W), mode='bilinear', align_corners=False)
 
-	tensorFlow[:, 0, :, :] *= float(intWidth) / float(intPreprocessedWidth)
-	tensorFlow[:, 1, :, :] *= float(intHeight) / float(intPreprocessedHeight)
+	tensorFlow[:, 0, :, :] *= float(W) / float(intPreprocessedWidth)
+	tensorFlow[:, 1, :, :] *= float(H) / float(intPreprocessedHeight)
 
-	return tensorFlow[0, :, :, :].cpu()
+	return tensorFlow[:, :, :, :].cpu()
 # end
