@@ -3,20 +3,21 @@ import torch
 import torch.nn as nn
 import torchvision as tv
 import os
-
-import network
+import networks
+import networks.basenet as basenet
+import networks.pwcnet as pwcnet
 
 # There are many functions:
 # ----------------------------------------
-# 1. text_readlines:
-# In: a str nominating the a txt
-# Parameters: None
-# Out: list
-# ----------------------------------------
-# 2. create_generator:
+# 1. create_generator:
 # In: opt, init_type, init_gain
 # Parameters: init type and gain, we highly recommend that Gaussian init with standard deviation of 0.02
 # Out: colorizationnet
+# ----------------------------------------
+# 2. create_discriminator:
+# In: opt, init_type, init_gain
+# Parameters: init type and gain, we highly recommend that Gaussian init with standard deviation of 0.02
+# Out: discriminator_coarse_color, discriminator_coarse_sal, discriminator_fine_color, discriminator_fine_sal
 # ----------------------------------------
 # 3. create_discriminator:
 # In: opt, init_type, init_gain
@@ -28,26 +29,88 @@ import network
 # Parameters: None
 # Out: perceptualnet
 # ----------------------------------------
-# 5. load_dict
-# In: process_net (the net needs update), pretrained_net (the net has pre-trained dict)
-# Out: process_net (updated)
+# 5. repackage_hidden:
+# In: dictionary the contains Tensors
+# Parameters: None
+# Out: detached Tensors
 # ----------------------------------------
-# 6. savetxt
-# In: list
+# 6. text_readlines:
+# In: a str nominating the a txt
+# Parameters: None
+# Out: list
+# ----------------------------------------
+# 7. text_save:
+# In: content, a str nominating the a txt
+# Parameters: None
 # Out: txt
 # ----------------------------------------
-# 7. get_files
+# 8. text_np_save:
+# In: content, a str nominating the a txt
+# Parameters: None
+# Out: txt
+# ----------------------------------------
+# 9. get_files
 # In: path
 # Out: txt
 # ----------------------------------------
-# 8. get_jpgs
+# 10. get_jpgs
 # In: path
 # Out: txt
 # ----------------------------------------
-# 9. text_save
-# In: list
+# 11. get_dirs
+# In: path
 # Out: txt
 # ----------------------------------------
+# 12. get_relative_dirs
+# In: path
+# Out: txt
+# ----------------------------------------
+
+def create_generator(opt):
+    if opt.pre_train:
+        # Initialize the network
+        generator = basenet.ConvLSTMGenerator_1in(opt)
+        # Init the network
+        networks.weights_init(generator, init_type = opt.init_type, init_gain = opt.init_gain)
+        print('Generator is created!')
+    else:
+        # Initialize the network
+        generator = basenet.ConvLSTMGenerator_1in(opt)
+        # Load a pre-trained network
+        pretrained_net = torch.load(opt.load_name + '.pth')
+        networks.load_dict(generator, pretrained_net)
+        print('Generator is loaded!')
+    return generator
+    
+def create_discriminator(opt):
+    # Initialize the network
+    discriminator = basenet.PatchDiscriminator70(opt)
+    # Init the network
+    networks.weights_init(discriminator, init_type = opt.init_type, init_gain = opt.init_gain)
+    print('Discriminators is created!')
+    return discriminator
+
+def create_pwcnet(opt):
+    # Initialize the network
+    flownet = pwcnet.PWCNet().eval()
+    # Load a pre-trained network
+    data = torch.load(opt.pwcnet_path)
+    if 'state_dict' in data.keys():
+        flownet.load_state_dict(data['state_dict'])
+    else:
+        flownet.load_state_dict(data)
+    print('PWCNet is loaded!')
+    # It does not gradient
+    for param in flownet.parameters():
+        param.requires_grad = False
+    return flownet
+
+def repackage_hidden(h):
+    # Wraps hidden states in new Variables, to detach them from their history
+    if isinstance(h, torch.Tensor):
+        return h.detach()
+    else:
+        return tuple(repackage_hidden(v) for v in h)
 
 def text_readlines(filename):
     # Try to read a txt file and return a list.Return [] if there was a mistake.
@@ -63,73 +126,6 @@ def text_readlines(filename):
     file.close()
     return content
 
-def create_generator(opt):
-    if opt.pre_train:
-        # Initialize the network
-        generator = network.Generator(opt)
-        # Init the network
-        network.weights_init(generator, init_type = opt.init_type, init_gain = opt.init_gain)
-        print('Generator is created!')
-    else:
-        # Initialize the network
-        generator = network.Generator(opt)
-        # Load a pre-trained network
-        pretrained_net = torch.load(opt.load_name + '.pth')
-        load_dict(generator, pretrained_net)
-        print('Generator is loaded!')
-    return generator
-
-def create_discriminator(opt):
-    # Initialize the network
-    discriminator = network.PatchDiscriminator70(opt)
-    # Init the network
-    network.weights_init(discriminator, init_type = opt.init_type, init_gain = opt.init_gain)
-    print('Discriminators is created!')
-    return discriminator
-    
-def load_dict(process_net, pretrained_net):
-    # Get the dict from pre-trained network
-    pretrained_dict = pretrained_net.state_dict()
-    # Get the dict from processing network
-    process_dict = process_net.state_dict()
-    # Delete the extra keys of pretrained_dict that do not belong to process_dict
-    pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in process_dict}
-    # Update process_dict using pretrained_dict
-    process_dict.update(pretrained_dict)
-    # Load the updated dict to processing network
-    process_net.load_state_dict(process_dict)
-    return process_net
-
-def savetxt(name, loss_log):
-    np_loss_log = np.array(loss_log)
-    np.savetxt(name, np_loss_log)
-
-def get_dirs(path):
-    ret = []
-    #read a folder, return a list of names of child folders
-    for root, dirs, files in os.walk(path):
-        for name in dirs:
-            if root == path:
-                ret.append(name)
-    return ret
-
-def get_files(path):
-    # read a folder, return the complete path
-    ret = []
-    for root, dirs, files in os.walk(path):  
-        for filespath in files: 
-            ret.append(os.path.join(root,filespath)) 
-    return ret
-
-
-def get_jpgs(path):
-    # read a folder, return the image name
-    ret = [] 
-    for root, dirs, files in os.walk(path):  
-        for filespath in files: 
-            ret.append(filespath) 
-    return ret
-
 def text_save(content, filename, mode = 'a'):
     # save a list to a txt
     # Try to save a list variable in txt file.
@@ -138,53 +134,46 @@ def text_save(content, filename, mode = 'a'):
         file.write(str(content[i]) + '\n')
     file.close()
 
-'''
-a = torch.randn(1, 3, 4, 4)
-b = torch.randn(1, 3, 4, 4)
-c = (a, b)
-d = repackage_hidden(c)
-print(d)
-'''
-'''
-class TVLoss(nn.Module):
-    def __init__(self, TVLoss_weight = 1):
-        super(TVLoss, self).__init__()
-        self.TVLoss_weight = TVLoss_weight
+def text_np_save(content, filename):
+    np_content = np.array(content)
+    np.savetxt(filename, np_content)
 
-    def forward(self, x):
-        batch_size = x.size()[0]
-        h_x = x.size()[2]
-        w_x = x.size()[3]
-        count_h = self._tensor_size(x[:, :, 1:, :])
-        count_w = self._tensor_size(x[:, :, :, 1:])
-        h_tv = torch.pow((x[:, :, 1:, :] - x[:, :, :h_x - 1, :]), 2).sum()
-        w_tv = torch.pow((x[:, :, :, 1:] - x[:, :, :, :w_x - 1]), 2).sum()
-        return self.TVLoss_weight * 2 * (h_tv / count_h + w_tv / count_w) / batch_size
+def get_files(path):
+    # read a folder, return the complete path
+    ret = []
+    for root, dirs, files in os.walk(path):
+        for filespath in files: 
+            ret.append(os.path.join(root,filespath))
+    return ret
 
-    def _tensor_size(self, t):
-        return t.size()[1] * t.size()[2] * t.size()[3]
+def get_jpgs(path):
+    # read a folder, return the image name
+    ret = []
+    for root, dirs, files in os.walk(path):
+        for filespath in files:
+            ret.append(filespath)
+    return ret
 
-class GradLoss(nn.Module):
-    def __init__(self, GradLoss_weight = 1):
-        super(GradLoss, self).__init__()
-        self.GradLoss_weight = GradLoss_weight
-        self.MSEloss = nn.MSELoss()
+def get_dirs(path):
+    #read a folder, return a list of names of child folders
+    ret = []
+    for root, dirs, files in os.walk(path):
+        for name in dirs:
+            if root == path:
+                ret.append(name)
+    return ret
 
-    def forward(self, x, y):
-        h_x = x.size()[2]
-        w_x = x.size()[3]
+def get_relative_dirs(path):
+    # read a folder, return the complete path
+    ret = []
+    for root, dirs, files in os.walk(path):
+        for filespath in files:
+            a = os.path.join(root,filespath)
+            a = a.split('\\')[-2] + '\\' + a.split('\\')[-1]
+            ret.append(a)
+    return ret
 
-        x_h_grad = x[:, :, 1:, :] - x[:, :, :h_x - 1, :]
-        x_w_grad = x[:, :, :, 1:] - x[:, :, :, :w_x - 1]
-        y_h_grad = y[:, :, 1:, :] - y[:, :, :h_x - 1, :]
-        y_w_grad = y[:, :, :, 1:] - y[:, :, :, :w_x - 1]
-        
-        h_loss = self.MSEloss(x_h_grad, y_h_grad)
-        w_loss = self.MSEloss(x_w_grad, y_w_grad)
-        
-        return self.GradLoss_weight * (h_loss + w_loss)
 '''
-'''
-imglist = get_files('/home/alien/Documents/zyz/vid2vidGeneration/img')
-print(imglist)
+ret = get_relative_dirs('C:\\Users\\yzzha\\Desktop\\dataset\\VideoColor')
+text_save(ret, 'videocolor.txt')
 '''

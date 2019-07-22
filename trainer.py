@@ -8,9 +8,11 @@ from torch.autograd import Variable
 import torch.autograd as autograd
 from torch.utils.data import DataLoader
 import torch.backends.cudnn as cudnn
-
 import dataset
 import utils
+import sys
+
+import networks.pwcnet as pwcnet
 
 def Pre_train(opt):
     # ----------------------------------------
@@ -22,19 +24,29 @@ def Pre_train(opt):
 
     # Loss functions
     criterion_L1 = torch.nn.L1Loss().cuda()
+    criterion_MSE = torch.nn.MSELoss().cuda()
 
     # Initialize Generator
-    generator = utils.create_generator(opt)
+    generatorNet = utils.create_generator(opt)
+    discriminator = utils.create_discriminator(opt)
+    flownet = utils.create_pwcnet(opt)
 
     # To device
     if opt.multi_gpu:
-        generator = nn.DataParallel(generator)
-        generator = generator.cuda()
+        generatorNet = nn.DataParallel(generatorNet)
+        generatorNet = generatorNet.cuda()
+        discriminator = nn.DataParallel(discriminator)
+        discriminator = discriminator.cuda()
+        flownet = nn.DataParallel(flownet)
+        flownet = flownet.cuda()
     else:
-        generator = generator.cuda()
+        discriminator = discriminator.cuda()
+        generatorNet = generatorNet.cuda()
+        flownet = flownet.cuda()
 
     # Optimizers
-    optimizer_G = torch.optim.Adam(generator.parameters(), lr = opt.lr_g, betas = (opt.b1, opt.b2), weight_decay = opt.weight_decay)
+    optimizer_G = torch.optim.Adam(generatorNet.parameters(), lr = opt.lr_g, betas = (opt.b1, opt.b2), weight_decay = opt.weight_decay)
+    optimizer_D = torch.optim.Adam(discriminator.parameters(), lr = opt.lr_d, betas = (opt.b1, opt.b2))
     
     # Learning rate decrease
     def adjust_learning_rate(opt, epoch, iteration, optimizer):
@@ -79,7 +91,7 @@ def Pre_train(opt):
     # ----------------------------------------
 
     # Define the class list
-    imglist = utils.text_readlines('./img/Davis.txt')
+    imglist = utils.text_readlines('videocolor.txt')
     classlist = utils.get_dirs(opt.baseroot)
     '''
     imgnumber = len(imglist) - (len(imglist) % opt.batch_size)
@@ -88,7 +100,7 @@ def Pre_train(opt):
 
     # Define the dataset
     # trainset = dataset.NormalRGBDataset(opt, imglist)
-    trainset = dataset.MultiFramesDataset(opt, imglist, classlist) #train for multi frames
+    trainset = dataset.MultiFramesDataset(opt, imglist, classlist)
     # print('The overall number of images:', len(trainset))
     print('The overall number of classes:', len(trainset))
 
@@ -99,57 +111,93 @@ def Pre_train(opt):
     #                 Training
     # ----------------------------------------
 
+    # Tensor type
+    Tensor = torch.cuda.FloatTensor
+
     # Count start time
     prev_time = time.time()
     
     # For loop training
     for epoch in range(opt.epochs):
-        for i, (in_part, out_part) in enumerate(dataloader):
-            for j in range(opt.iter_frames):
-                print(out_part[j].shape)
-                img = out_part[j][0, :, :, :].permute(1, 2, 0).numpy()
-                img = img * 128 + 128
-                img = img.astype(np.uint8)
-                img2 = out_part[j][1, :, :, :].permute(1, 2, 0).numpy()
-                img2 = img2 * 128 + 128
-                img2 = img2.astype(np.uint8)
-                from PIL import Image
-                img = Image.fromarray(img)
-                img2 = Image.fromarray(img2)
-                img.save('1_%d.jpg' % j)
-                img2.save('2_%d.jpg' % j)
-                
-                # To device
-                true_input = in_part[j][i].cuda()
-                true_target = out_part[j].cuda()
-                
-                # Train Generator
-                optimizer_G.zero_grad()
-                fake_target = generator(true_input)
-                
-                # L1 Loss
-                Pixellevel_L1_Loss = criterion_L1(fake_target, true_target)
+        for iteration, (in_part, out_part) in enumerate(dataloader):
+            
+            # Train Generator
+            optimizer_G.zero_grad()
+            optimizer_D.zero_grad()
 
+            lstm_state = None
+            loss_flow = 0
+            loss_L1 = 0
+            loss_D = 0
+            loss_G = 0
+
+            # Adversarial ground truth
+            valid = Tensor(np.ones((in_part[0].shape[0], 1, 30, 30)))
+            fake = Tensor(np.zeros((in_part[0].shape[0], 1, 30, 30)))
+
+            for iter_frame in range(opt.iter_frames):
+                # Read data
+                x_t = in_part[iter_frame].cuda()
+                y_t = out_part[iter_frame].cuda()
+                
+                # Initialize the second input and compute flow loss
+                if iter_frame == 0:
+                    y_t_last = torch.zeros(opt.batch_size, opt.out_channels, opt.resize_h, opt.resize_w).cuda()
+                else:
+                    x_t_last = in_part[iter_frame - 1].cuda()
+                    y_t_last = p_t
+                    # o_t_last_2_t range is [-20, +20]
+                    o_t_last_2_t = pwcnet.PWCEstimate(flownet, x_t_last, x_t)
+                    # y_t_warp range is [0, 1]
+                    y_t_warp = pwcnet.PWCNetBackward((y_t_last + 1) / 2, - o_t_last_2_t)
+                    loss_flow = loss_flow + criterion_L1(y_t_warp, (y_t + 1) / 2)
+                    y_t_last = y_t_last.detach()
+                y_t_last.requires_grad = False
+
+                # Train Discriminator
+                # Generator output
+                p_t, lstm_state = generatorNet(x_t, y_t_last, lstm_state)
+                lstm_state = utils.repackage_hidden(lstm_state)
+                # Fake samples
+                fake_scalar = discriminator(x_t, p_t.detach())
+                loss_fake = criterion_MSE(fake_scalar, fake)
+                # True samples
+                true_scalar = discriminator(x_t, y_t)
+                loss_true = criterion_MSE(true_scalar, valid)
                 # Overall Loss and optimize
-                loss = Pixellevel_L1_Loss
-                loss.backward()
-                optimizer_G.step()
+                loss_D = loss_D + 0.5 * (loss_fake + loss_true)
+        
+                # Train Generator
+                # GAN Loss
+                fake_scalar = discriminator(x_t, p_t)
+                loss_G = loss_G + criterion_MSE(fake_scalar, valid)
+                
+                # Pixel-level loss
+                loss_L1 = loss_L1 + criterion_L1(p_t, y_t)
 
-                # Determine approximate time left
-                iters_done = epoch * len(dataloader) + i
-                iters_left = opt.epochs * len(dataloader) - iters_done
-                time_left = datetime.timedelta(seconds = iters_left * (time.time() - prev_time))
-                prev_time = time.time()
+            # Overall Loss and optimize
+            loss = loss_L1 + opt.lambda_flow * loss_flow + opt.lambda_gan * loss_G
+            loss.backward()
+            loss_D.backward()
+            optimizer_G.step()
+            optimizer_D.step()
 
-                # Print log
-                print("\r[Epoch %d/%d] [Batch %d/%d] [Pixellevel L1 Loss: %.4f] Time_left: %s" %
-                    ((epoch + 1), opt.epochs, i, len(dataloader), Pixellevel_L1_Loss.item(), time_left))
+            # Determine approximate time left
+            iters_done = epoch * len(dataloader) + iteration
+            iters_left = opt.epochs * len(dataloader) - iters_done
+            time_left = datetime.timedelta(seconds = iters_left * (time.time() - prev_time))
+            prev_time = time.time()
 
-                # Save model at certain epochs or iterations
-                save_model(opt, (epoch + 1), (iters_done + 1), len(dataloader), generator)
+            # Print log
+            print("\r[Epoch %d/%d] [Batch %d/%d] [L1 Loss: %.4f] [Flow Loss: %.4f] [G Loss: %.4f] [D Loss: %.4f] Time_left: %s" %
+                ((epoch + 1), opt.epochs, iteration, len(dataloader), loss_L1.item(), loss_flow.item(), loss_G.item(), loss_D.item(), time_left))
 
-                # Learning rate decrease at certain epochs
-                adjust_learning_rate(opt, (epoch + 1), (iters_done + 1), optimizer_G)
+            # Save model at certain epochs or iterations
+            save_model(opt, (epoch + 1), (iters_done + 1), len(dataloader), generatorNet)
+
+            # Learning rate decrease at certain epochs
+            adjust_learning_rate(opt, (epoch + 1), (iters_done + 1), optimizer_G)
+            adjust_learning_rate(opt, (epoch + 1), (iters_done + 1), optimizer_D)
 
 def Continue_train_LSGAN(opt):
     # ----------------------------------------
@@ -164,21 +212,21 @@ def Continue_train_LSGAN(opt):
     criterion_MSE = torch.nn.MSELoss().cuda()
 
     # Initialize Generator
-    generator = utils.create_generator(opt)
+    generatorNet = utils.create_generator(opt)
     discriminator = utils.create_discriminator(opt)
 
     # To device
     if opt.multi_gpu:
-        generator = nn.DataParallel(generator)
-        generator = generator.cuda()
+        generatorNet = nn.DataParallel(generatorNet)
+        generatorNet = generatorNet.cuda()
         discriminator = nn.DataParallel(discriminator)
         discriminator = discriminator.cuda()
     else:
-        generator = generator.cuda()
+        generatorNet = generatorNet.cuda()
         discriminator = discriminator.cuda()
 
     # Optimizers
-    optimizer_G = torch.optim.Adam(generator.parameters(), lr = opt.lr_g, betas = (opt.b1, opt.b2), weight_decay = opt.weight_decay)
+    optimizer_G = torch.optim.Adam(generatorNet.parameters(), lr = opt.lr_g, betas = (opt.b1, opt.b2), weight_decay = opt.weight_decay)
     optimizer_D = torch.optim.Adam(discriminator.parameters(), lr = opt.lr_d, betas = (opt.b1, opt.b2))
     
     # Learning rate decrease
@@ -264,7 +312,7 @@ def Continue_train_LSGAN(opt):
                 optimizer_D.zero_grad()
 
                 # Generator output
-                fake_target = generator(true_input)
+                fake_target = generatorNet(true_input)
 
                 # Fake samples
                 fake_scalar_d = discriminator(true_input, fake_target.detach())
@@ -278,7 +326,7 @@ def Continue_train_LSGAN(opt):
      
             # Train Generator
             optimizer_G.zero_grad()
-            fake_target = generator(true_input)
+            fake_target = generatorNet(true_input)
 
             # L1 Loss
             Pixellevel_L1_Loss = criterion_L1(fake_target, true_target)
@@ -303,7 +351,7 @@ def Continue_train_LSGAN(opt):
                 ((epoch + 1), opt.epochs, i, len(dataloader), Pixellevel_L1_Loss.item(), GAN_Loss.item(), loss_D.item(), time_left))
 
             # Save model at certain epochs or iterations
-            save_model(opt, (epoch + 1), (iters_done + 1), len(dataloader), generator)
+            save_model(opt, (epoch + 1), (iters_done + 1), len(dataloader), generatorNet)
 
             # Learning rate decrease at certain epochs
             adjust_learning_rate(opt, (epoch + 1), (iters_done + 1), optimizer_G)
@@ -320,21 +368,21 @@ def Continue_train_WGAN(opt):
     criterion_L1 = torch.nn.L1Loss().cuda()
 
     # Initialize Generator
-    generator = utils.create_generator(opt)
+    generatorNet = utils.create_generator(opt)
     discriminator = utils.create_discriminator(opt)
 
     # To device
     if opt.multi_gpu:
-        generator = nn.DataParallel(generator)
-        generator = generator.cuda()
+        generatorNet = nn.DataParallel(generatorNet)
+        generatorNet = generatorNet.cuda()
         discriminator = nn.DataParallel(discriminator)
         discriminator = discriminator.cuda()
     else:
-        generator = generator.cuda()
+        generatorNet = generatorNet.cuda()
         discriminator = discriminator.cuda()
 
     # Optimizers
-    optimizer_G = torch.optim.Adam(generator.parameters(), lr = opt.lr_g, betas = (opt.b1, opt.b2), weight_decay = opt.weight_decay)
+    optimizer_G = torch.optim.Adam(generatorNet.parameters(), lr = opt.lr_g, betas = (opt.b1, opt.b2), weight_decay = opt.weight_decay)
     optimizer_D = torch.optim.Adam(discriminator.parameters(), lr = opt.lr_d, betas = (opt.b1, opt.b2))
     
     # Learning rate decrease
@@ -413,7 +461,7 @@ def Continue_train_WGAN(opt):
                 optimizer_D.zero_grad()
 
                 # Generator output
-                fake_target = generator(true_input)
+                fake_target = generatorNet(true_input)
 
                 # Fake samples
                 fake_scalar_d = discriminator(true_input, fake_target.detach())
@@ -424,7 +472,7 @@ def Continue_train_WGAN(opt):
 
             # Train Generator
             optimizer_G.zero_grad()
-            fake_target = generator(true_input)
+            fake_target = generatorNet(true_input)
 
             # L1 Loss
             Pixellevel_L1_Loss = criterion_L1(fake_target, true_target)
@@ -449,7 +497,7 @@ def Continue_train_WGAN(opt):
                 ((epoch + 1), opt.epochs, i, len(dataloader), Pixellevel_L1_Loss.item(), GAN_Loss.item(), loss_D.item(), time_left))
 
             # Save model at certain epochs or iterations
-            save_model(opt, (epoch + 1), (iters_done + 1), len(dataloader), generator)
+            save_model(opt, (epoch + 1), (iters_done + 1), len(dataloader), generatorNet)
 
             # Learning rate decrease at certain epochs
             adjust_learning_rate(opt, (epoch + 1), (iters_done + 1), optimizer_G)
