@@ -11,6 +11,7 @@ import torch.backends.cudnn as cudnn
 import dataset
 import utils
 import sys
+
 import networks.pwcnet as pwcnet
 
 def Pre_train(opt):
@@ -119,7 +120,6 @@ def Pre_train(opt):
     # For loop training
     for epoch in range(opt.epochs):
         for iteration, (in_part, out_part) in enumerate(dataloader):
-<<<<<<< HEAD
             
             # Train Generator
             optimizer_G.zero_grad()
@@ -181,6 +181,7 @@ def Pre_train(opt):
             loss_D.backward()
             optimizer_G.step()
             optimizer_D.step()
+
             # Determine approximate time left
             iters_done = epoch * len(dataloader) + iteration
             iters_left = opt.epochs * len(dataloader) - iters_done
