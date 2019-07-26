@@ -18,14 +18,6 @@ def test(rgb, colornet):
     out_rgb = (out_rgb * 0.5 + 0.5) * 255
     out_rgb = out_rgb.astype(np.uint8)
     return out_rgb
-    
-def video_test(x_t, y_t_last, lstm_state, colornet):
-    out_rgb = colornet(x_t, y_t_last, lstm_state)
-    out_rgb = out_rgb.cpu().detach().numpy().reshape([3, 256, 256])
-    out_rgb = out_rgb.transpose(1, 2, 0)
-    out_rgb = (out_rgb * 0.5 + 0.5) * 255
-    out_rgb = out_rgb.astype(np.uint8)
-    return out_rgb, lstm_state
 
 def getImage(root):
     transform = transforms.Compose([
@@ -78,17 +70,29 @@ def generation(baseroot, saveroot, imglist, colornet):
         img_rgb.save(savename)
     print('Done!')
 
+def video_test(x_t, y_t_last, lstm_state, colornet):
+    out_rgb, lstm_state = colornet(x_t, y_t_last, lstm_state)
+    out_rgb = out_rgb.cpu().detach().numpy().reshape([3, 256, 256])
+    out_rgb = out_rgb.transpose(1, 2, 0)
+    out_rgb = (out_rgb * 0.5 + 0.5) * 255
+    out_rgb = out_rgb.astype(np.uint8)
+    return out_rgb, lstm_state
+
 def video_generation(baseroot, saveroot, imglist, colornet):
     y_t_last = torch.zeros(1, 3, 256, 256).cuda()
     lstm_state = None
     for i in range(len(imglist)):
         #Read raw image
         readname = baseroot + imglist[i]
-        torchimg = getImage(readname)
+        x_t = getImage(readname)
         #Forword propagation
-        y_t_last, lstm_state = video_test(torchimg, y_t_last, lstm_state, colornet)
+        y_t_last, lstm_state = colornet(x_t, y_t_last, lstm_state)
         lstm_state = utils.repackage_hidden(lstm_state)
         # Save
+        out_rgb = y_t_last.cpu().detach()
+        out_rgb = out_rgb.numpy().reshape([3, 256, 256]).transpose(1, 2, 0)
+        out_rgb = (out_rgb * 0.5 + 0.5) * 255
+        out_rgb = out_rgb.astype(np.uint8)
         img_rgb = Image.fromarray(y_t_last)
         savename = saveroot + imglist[i]
         img_rgb.save(savename)
