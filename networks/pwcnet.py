@@ -3,11 +3,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 import math
 import networks.correlation as correlation
+#import correlation
 
 # ----------------------------------------
 #          PWCNet Forward Method
 # ----------------------------------------
-def PWCEstimate(pwcnet, tensorFirst, tensorSecond, drange = False, reshape = False):
+def PWCEstimate(flownet, tensorFirst, tensorSecond, drange = False, reshape = False):
     # Ensure the frames are continuous
     assert tensorFirst.size() == tensorSecond.size()
     # The input tensor should be 4D; cuda / cpu both are OK
@@ -20,14 +21,14 @@ def PWCEstimate(pwcnet, tensorFirst, tensorSecond, drange = False, reshape = Fal
         tensorPreprocessedFirst, intPreprocessedHeight, intPreprocessedWidth = Reshape_Tensor(tensorFirst)
         tensorPreprocessedSecond, intPreprocessedHeight, intPreprocessedWidth = Reshape_Tensor(tensorSecond)
         # forward
-        tensorFlow = pwcnet(tensorPreprocessedFirst, tensorPreprocessedSecond)
+        tensorFlow = flownet(tensorPreprocessedFirst, tensorPreprocessedSecond)
         # alignment
         tensorFlow = 20.0 * F.interpolate(input = tensorFlow, size = (H, W), mode = 'bilinear', align_corners = False)
         tensorFlow[:, 0, :, :] *= float(W) / float(intPreprocessedWidth)
         tensorFlow[:, 1, :, :] *= float(H) / float(intPreprocessedHeight)
     else:
         # forward
-        tensorFlow = pwcnet(tensorFirst, tensorSecond)
+        tensorFlow = flownet(tensorFirst, tensorSecond)
         tensorFlow = 20.0 * F.interpolate(input = tensorFlow, size = (H, W), mode = 'bilinear', align_corners = False)
     return tensorFlow
 

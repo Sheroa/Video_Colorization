@@ -2,5 +2,6 @@
 img/*
 data/*
 models/*
-__pycache__/*
-.vscode/*
+__pycache__*
+*.pth
+*.pyc

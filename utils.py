@@ -4,7 +4,7 @@ import torch.nn as nn
 import torchvision as tv
 import os
 import networks
-import networks.basenet as basenet
+import networks.basenet1 as basenet
 import networks.pwcnet as pwcnet
 
 # There are many functions:
