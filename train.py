@@ -22,8 +22,8 @@ if __name__ == "__main__":
     # Training parameters
     parser.add_argument('--epochs', type = int, default = 10000, help = 'number of epochs of training')
     parser.add_argument('--batch_size', type = int, default = 1, help = 'size of the batches')
-    parser.add_argument('--lr_g', type = float, default = 0.0001, help = 'Adam: learning rate for G')
-    parser.add_argument('--lr_d', type = float, default = 0.0001, help = 'Adam: learning rate for D')
+    parser.add_argument('--lr_g', type = float, default = 0.0002, help = 'Adam: learning rate for G')
+    parser.add_argument('--lr_d', type = float, default = 0.0002, help = 'Adam: learning rate for D')
     parser.add_argument('--b1', type = float, default = 0.5, help = 'Adam: decay of first order momentum of gradient')
     parser.add_argument('--b2', type = float, default = 0.999, help = 'Adam: decay of second order momentum of gradient')
     parser.add_argument('--weight_decay', type = float, default = 0, help = 'weight decay for optimizer')
@@ -39,7 +39,7 @@ if __name__ == "__main__":
     parser.add_argument('--norm', type = str, default = 'in', help = 'normalization type of networks')
     parser.add_argument('--in_channels', type = int, default = 3, help = '1 for colorization, 3 for other tasks')
     parser.add_argument('--out_channels', type = int, default = 3, help = '2 for colorization, 3 for other tasks')
-    parser.add_argument('--start_channels', type = int, default = 64, help = 'start channels for the main stream of generator')
+    parser.add_argument('--start_channels', type = int, default = 32, help = 'start channels for the main stream of generator')
     parser.add_argument('--init_type', type = str, default = 'kaiming', help = 'initialization type of networks')
     parser.add_argument('--init_gain', type = float, default = 0.02, help = 'initialization gain of networks')
     # GAN parameters
@@ -47,7 +47,7 @@ if __name__ == "__main__":
     parser.add_argument('--additional_training_d', type = int, default = 1, help = 'number of training D more times than G')
     # Dataset parameters
     parser.add_argument('--task', type = str, default = 'colorization', help = 'the specific task of the system')
-    parser.add_argument('--baseroot', type = str, default = '/home/alien/Documents/zyz/vid2vidGeneration/data', help = 'color image baseroot')
+    parser.add_argument('--baseroot', type = str, default = 'C:\\Users\\yzzha\\Desktop\\dataset\\VideoColor', help = 'color image baseroot')
     parser.add_argument('--iter_frames', type = int, default = 10, help = 'number of iter_frames')
     parser.add_argument('--resize_h', type = int, default = 256, help = 'resize height')
     parser.add_argument('--resize_w', type = int, default = 256, help = 'resize width')
