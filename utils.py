@@ -1,10 +1,18 @@
+#python lib
+import os
+import math
 import numpy as np
+
+#torch lib
 import torch
 import torch.nn as nn
 import torchvision as tv
-import os
+from torch.utils.data.sampler import Sampler
+from torch.utils.data import DataLoader
+
+#own lib
 import networks
-import networks.basenet1 as basenet
+import networks.basenet as basenet
 import networks.pwcnet as pwcnet
 
 # There are many functions:
@@ -65,6 +73,30 @@ import networks.pwcnet as pwcnet
 # In: path
 # Out: txt
 # ----------------------------------------
+
+class SubsetSeSampler(Sampler):
+
+    def __init__(self, indices):
+        self.indices = indices
+
+    def __iter__(self):
+        return (self.indices[i] for i in range(len(self.indices)))
+    
+    def __len__(self):
+        return len(self.indices)
+
+
+def create_dataloader(dataset, opt):
+    #generate random index
+    samples_num = int(opt.epochs * opt.batch_size / opt.iter_frames)
+    epochs_num = int(math.ceil((float(samples_num)/len(dataset))))
+    indices = np.random.permutation(len(dataset))
+    indices = np.tile(indices, epochs_num)
+    indices = indices[:samples_num]
+    #generate data sampler and loader
+    data_sampler = SubsetSeSampler(indices)
+    data_loader = DataLoader(dataset=dataset, num_workers=opt.num_workers, batch_size = opt.batch_size, sampler=data_sampler, pin_memory=True)
+    return data_loader
 
 def create_generator(opt):
     if opt.pre_train:

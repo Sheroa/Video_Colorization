@@ -21,7 +21,9 @@ class ConvLSTMGenerator_1in(nn.Module):
         self.E2_b = Conv2dLayer(opt.start_channels, opt.start_channels * 2, 4, 2, 1, pad_type = opt.pad, norm = opt.norm)
         self.E3_a = Conv2dLayer(opt.start_channels * 2, opt.start_channels * 2, 4, 2, 1, pad_type = opt.pad, norm = opt.norm)
         self.E3_b = Conv2dLayer(opt.start_channels * 2, opt.start_channels * 2, 4, 2, 1, pad_type = opt.pad, norm = opt.norm)
-        self.E4 = Conv2dLayer(opt.start_channels * 4, opt.start_channels * 4, 4, 2, 1, pad_type = opt.pad, norm = opt.norm)
+        self.E4_a = Conv2dLayer(opt.start_channels * 2, opt.start_channels * 2, 4, 2, 1, pad_type = opt.pad, norm = opt.norm)
+        self.E4_b = Conv2dLayer(opt.start_channels * 2, opt.start_channels * 2, 4, 2, 1, pad_type = opt.pad, norm = opt.norm)
+        self.E5 = Conv2dLayer(opt.start_channels * 4, opt.start_channels * 4, 4, 2, 1, pad_type = opt.pad, norm = opt.norm)
         # Middle Encoder layers
         self.R1 = ResConv2dLayer(opt.start_channels * 4, 3, 1, 1, pad_type = opt.pad, norm = opt.norm)
         self.R2 = ResConv2dLayer(opt.start_channels * 4, 3, 1, 1, pad_type = opt.pad, norm = opt.norm)
@@ -32,8 +34,9 @@ class ConvLSTMGenerator_1in(nn.Module):
         # Decoder
         self.D1 = TransposeConv2dLayer(opt.start_channels * 4, opt.start_channels * 2, 3, 1, 1, pad_type = opt.pad, norm = opt.norm, scale_factor = 2)
         self.D2 = TransposeConv2dLayer(opt.start_channels * 4, opt.start_channels * 2, 3, 1, 1, pad_type = opt.pad, norm = opt.norm, scale_factor = 2)
-        self.D3 = TransposeConv2dLayer(opt.start_channels * 4, opt.start_channels * 1, 3, 1, 1, pad_type = opt.pad, norm = opt.norm, scale_factor = 2)
-        self.D4 = Conv2dLayer(opt.start_channels * 2, opt.out_channels, 7, 1, 3, pad_type = opt.pad, activation = 'tanh', norm = 'none')
+        self.D3 = TransposeConv2dLayer(opt.start_channels * 4, opt.start_channels * 2, 3, 1, 1, pad_type = opt.pad, norm = opt.norm, scale_factor = 2)
+        self.D4 = TransposeConv2dLayer(opt.start_channels * 4, opt.start_channels * 1, 3, 1, 1, pad_type = opt.pad, norm = opt.norm, scale_factor = 2)
+        self.D5 = Conv2dLayer(opt.start_channels * 2, opt.out_channels, 7, 1, 3, pad_type = opt.pad, activation = 'tanh', norm = 'none')
 
     def forward(self, a, b, prev_state):
         # U-Net generator with skip connections from encoder to decoder
@@ -45,8 +48,10 @@ class ConvLSTMGenerator_1in(nn.Module):
         E2_b = self.E2_b(E1_b)                                  # out: batch * 128 * 128 * 128
         E3_a = self.E3_a(E2_a)                                  # out: batch * 128 * 64 * 64
         E3_b = self.E3_b(E2_b)                                  # out: batch * 128 * 64 * 64
-        E3 = torch.cat((E3_a, E3_b), 1)                         # out: batch * 256 * 64 * 64
-        E4 = self.E4(E3)                                        # out: batch * 256 * 32 * 32
+        E4_a = self.E4_a(E3_a)                                  # out: batch * 128 * 32 * 32
+        E4_b = self.E4_b(E3_b)                                  # out: batch * 128 * 32 * 32
+        E4 = torch.cat((E4_a, E4_b), 1)                         # out: batch * 256 * 64 * 64
+        E4 = self.E5(E4)                                        # out: batch * 256 * 32 * 32
         # Middle Encoder layers
         E4 = self.R1(E4)                                        # out: batch * 256 * 32 * 32
         E4 = self.R2(E4)                                        # out: batch * 256 * 32 * 32
@@ -56,14 +61,16 @@ class ConvLSTMGenerator_1in(nn.Module):
         state = self.ConvLSTM(E4, prev_state)                   # out[0] | hidden: batch * 256 * 32 * 32; out[1] | cell: batch * 256 * 32 * 32
         # Decode the LSTM output
         D1 = self.D1(state[0])                                  # out: batch * 128 * 64 * 64
-        C1 = torch.cat((D1, E3_a), 1)                           # out: batch * 256 * 64 * 64
+        C1 = torch.cat((D1, E4_a), 1)                           # out: batch * 256 * 64 * 64
         D2 = self.D2(C1)                                        # out: batch * 128 * 128 * 128
-        C2 = torch.cat((D2, E2_a), 1)                           # out: batch * 256 * 128 * 128
+        C2 = torch.cat((D2, E3_a), 1)                           # out: batch * 256 * 128 * 128
         D3 = self.D3(C2)                                        # out: batch * 64 * 256 * 256
-        C3 = torch.cat((D3, E1_a), 1)                           # out: batch * 128 * 256 * 256
-        D4 = self.D4(C3)                                        # out: batch * 256 * 128 * 128
+        C3 = torch.cat((D3, E2_a), 1)                           # out: batch * 128 * 256 * 256
+        D4 = self.D4(C3)                                        # out: batch * 64 * 256 * 256
+        C4 = torch.cat((D4, E1_a), 1)                           # out: batch * 128 * 256 * 256
+        D5 = self.D5(C4)                                        # out: batch * 256 * 128 * 128
 
-        return D4, state                                        # out[0]: the system output; out[1]: the current state (undetached)
+        return D5, state                                        # out[0]: the system output; out[1]: the current state (undetached)
 
 # ----------------------------------------
 #               Discriminator
