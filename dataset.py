@@ -38,7 +38,7 @@ class ColorizationDataset(Dataset):
         ])
 
     def __getitem__(self, index):
-        imgpath = self.baseroot + '\\' + self.imglist[index]            # path of one image
+        imgpath = self.baseroot + '/' + self.imglist[index]            # path of one image
         colorimg = Image.open(imgpath)                                  # read one image
         greyimg = colorimg.convert('L').convert('RGB')                  # convert to grey scale, and concat to 3 channels
         colorimg = colorimg.convert('RGB')                              # convert to color RGB
@@ -67,18 +67,16 @@ class MultiFramesDataset(Dataset):
         self.imgroot = [list() for i in range(len(classlist))]          # imgroot contains the relative path of all images
         self.task = opt.task                                            # specific task
         self.iter_frames = opt.iter_frames                              # in one iteration, the number of images are used
-        self.h = opt.resize_h
-        self.w = opt.resize_w
         self.totensor = transforms.ToTensor()
         self.transform_gray = transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize((0.5,), (0.5,))
         ])
+
         self.transform_rgb = transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
         ])
-
         # calculate the whole number of each class
         for i, classname in enumerate(self.classlist):
             for j, imgname in enumerate(imglist):
@@ -92,8 +90,7 @@ class MultiFramesDataset(Dataset):
     def get_lab(self, imgpath):                                         # for colorization task
         img = Image.open(imgpath)                                       # read one image
         # pre-processing, let all the images are in RGB color space
-        img = img.resize((self.w, self.h), Image.ANTIALIAS)             
-        img = img.convert('RGB')                                        # PIL Image RGB: R [0, 255], G [0, 255], B [0, 255], order [H, W, C]
+        img = img.resize((256, 256), Image.ANTIALIAS).convert('RGB')    # PIL Image RGB: R [0, 255], G [0, 255], B [0, 255], order [H, W, C]
         img = np.array(img)                                             # numpy RGB: R [0, 255], G [0, 255], B [0, 255], order [H, W, C]
         # convert RGB to Lab, finally get Tensor
         img = color.rgb2lab(img).astype(np.float32)                     # skimage Lab: L [0, 100], a [-128, 127], b [-128, 127], order [H, W, C]
@@ -106,11 +103,10 @@ class MultiFramesDataset(Dataset):
     def get_rgb(self, imgpath):
         img = Image.open(imgpath)                                       # read one image
         # pre-processing, let all the images are in RGB color space
-        img = img.resize((self.w, self.h), Image.ANTIALIAS)             
-        img = img.convert('RGB')                                        # PIL Image RGB: R [0, 255], G [0, 255], B [0, 255], order [H, W, C]
+        img = img.resize((256, 256), Image.ANTIALIAS).convert('RGB')    # PIL Image RGB: R [0, 255], G [0, 255], B [0, 255], order [H, W, C]
         l = img.convert('L').convert('RGB')                             # PIL Image L: L [0, 255], order [H, W]
         # normalization
-        l = self.transform_rgb(l)                                       # L, normalized to [-1, 1]
+        l = self.transform_gray(l)                                      # L, normalized to [-1, 1]
         rgb = self.transform_rgb(img)                                   # rgb, normalized to [-1, 1]
         return l, rgb
 

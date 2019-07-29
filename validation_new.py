@@ -4,12 +4,29 @@ import torch
 import torch.nn as nn
 from torchvision import transforms
 from skimage import color
-
+import os
 import utils
 
 # ----------------------------------------
 #                 Testing
 # ----------------------------------------
+
+def get_jpgs(path):
+    # read a folder, return the image name
+    ret = []
+    numList = []
+    for root, dirs, files in os.walk(path):
+        files.sort()
+        for filespath in files:
+            ret.append(filespath)
+    return ret
+def text_save(content, filename, mode = 'a'):
+    # save a list to a txt
+    # Try to save a list variable in txt file.
+    file = open(filename, mode)
+    for i in range(len(content)):
+        file.write(str(content[i]) + '\n')
+    file.close()
 
 def test(rgb, colornet):
     out_rgb = colornet(rgb)
@@ -89,26 +106,27 @@ def video_generation(baseroot, saveroot, imglist, colornet):
         y_t_last, lstm_state = colornet(x_t, y_t_last, lstm_state)
         lstm_state = utils.repackage_hidden(lstm_state)
         # Save
-        out_rgb = y_t_last.cpu().detach()
+        y_t_last = y_t_last.detach()
+        out_rgb = y_t_last.cpu()
         out_rgb = out_rgb.numpy().reshape([3, 256, 256]).transpose(1, 2, 0)
         out_rgb = (out_rgb * 0.5 + 0.5) * 255
         out_rgb = out_rgb.astype(np.uint8)
-        img_rgb = Image.fromarray(y_t_last)
-        savename = saveroot + imglist[i]
+        img_rgb = Image.fromarray(out_rgb)
+        numName, typeName = imglist[i].split('.')
+        savename = saveroot + numName + '_500.'+ typeName
         img_rgb.save(savename)
 
 if __name__ == "__main__":
 
     # Define the basic variables
     root = './'
-    colornet = torch.load('./models/Pre_colorization_epoch1200_bs1.pth')
-    
+    colornet = torch.load('./models/batchSize1_startChanne32/Pre_colorization_epoch500_bs1.pth')
     # Define generation variables
-    txtname = './Varidation/names.txt'
-    imglist = utils.text_readlines(txtname)
-    baseroot = './Varidation/dataset'
-    saveroot = './Varidation/result'
-
+    # txtname = './Varidation/names.txt'
+    # imglist = utils.text_readlines(txtname)
+    baseroot = './Varidation/kite-surf/'
+    saveroot = './Varidation/result_kite-surf_epoch500_old/'
+    imglist = get_jpgs('./Varidation/kite-surf')
     # Choose a task:
     choice = 'video_generation'
     save = True
