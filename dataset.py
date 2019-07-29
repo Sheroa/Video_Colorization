@@ -82,7 +82,7 @@ class MultiFramesDataset(Dataset):
         # calculate the whole number of each class
         for i, classname in enumerate(self.classlist):
             for j, imgname in enumerate(imglist):
-                if imgname.split('\\')[-2] == classname:
+                if imgname.split('/')[-2] == classname:
                     self.imgroot[i].append(imgname)
         # raise error
         for i in range(len(imglist)):
@@ -123,7 +123,7 @@ class MultiFramesDataset(Dataset):
         in_part = []
         out_part = []
         for i in range(T, T + self.iter_frames):
-            imgpath = self.baseroot + '\\' + self.imgroot[index][i]      # path of one image
+            imgpath = self.baseroot + '/' + self.imgroot[index][i]      # path of one image
             if self.task == 'colorization':
                 l, ab = self.get_rgb(imgpath)
                 in_part.append(l)

@@ -91,7 +91,7 @@ def Pre_train(opt):
     # ----------------------------------------
 
     # Define the class list
-    imglist = utils.text_readlines('videocolor.txt')
+    imglist = utils.text_readlines('videocolor_linux.txt')
     classlist = utils.get_dirs(opt.baseroot)
     '''
     imgnumber = len(imglist) - (len(imglist) % opt.batch_size)

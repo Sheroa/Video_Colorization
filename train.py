@@ -47,7 +47,7 @@ if __name__ == "__main__":
     parser.add_argument('--additional_training_d', type = int, default = 1, help = 'number of training D more times than G')
     # Dataset parameters
     parser.add_argument('--task', type = str, default = 'colorization', help = 'the specific task of the system')
-    parser.add_argument('--baseroot', type = str, default = 'C:\\Users\\yzzha\\Desktop\\dataset\\VideoColor', help = 'color image baseroot')
+    parser.add_argument('--baseroot', type = str, default = './data', help = 'color image baseroot')
     parser.add_argument('--iter_frames', type = int, default = 10, help = 'number of iter_frames')
     parser.add_argument('--resize_h', type = int, default = 256, help = 'resize height')
     parser.add_argument('--resize_w', type = int, default = 256, help = 'resize width')
