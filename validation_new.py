@@ -113,20 +113,20 @@ def video_generation(baseroot, saveroot, imglist, colornet):
         out_rgb = out_rgb.astype(np.uint8)
         img_rgb = Image.fromarray(out_rgb)
         numName, typeName = imglist[i].split('.')
-        savename = saveroot + numName + '_800_old.'+ typeName
+        savename = saveroot + numName + '_500_old.'+ typeName
         img_rgb.save(savename)
 
 if __name__ == "__main__":
 
     # Define the basic variables
     root = './'
-    colornet = torch.load('./models/batchSize1_startChanne32/Pre_colorization_epoch800_bs1.pth')
+    colornet = torch.load('./models/batchSize1_startChanne32/Pre_colorization_epoch500_bs1.pth')
     # Define generation variables
     txtname = './Varidation/names.txt'
     # imglist = utils.text_readlines(txtname)
-    baseroot = './Varidation/kite-surf/'
-    saveroot = './Varidation/result_kite-surf_epoch800_old/'
-    imglist = get_jpgs('./Varidation/kite-surf')
+    baseroot = './Varidation/dataset/'
+    saveroot = './Varidation/result_epoch500_old/'
+    imglist = get_jpgs('./Varidation/dataset')
     # Choose a task:
     choice = 'video_generation'
     save = True

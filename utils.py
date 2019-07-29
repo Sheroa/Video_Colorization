@@ -88,11 +88,8 @@ class SubsetSeSampler(Sampler):
 
 def create_dataloader(dataset, opt):
     #generate random index
-    samples_num = int(opt.epochs * opt.batch_size / opt.iter_frames)
-    epochs_num = int(math.ceil((float(samples_num)/len(dataset))))
     indices = np.random.permutation(len(dataset))
-    indices = np.tile(indices, epochs_num)
-    indices = indices[:samples_num]
+    indices = np.tile(indices, opt.batch_size)
     #generate data sampler and loader
     data_sampler = SubsetSeSampler(indices)
     data_loader = DataLoader(dataset=dataset, num_workers=opt.num_workers, batch_size = opt.batch_size, sampler=data_sampler, pin_memory=True)

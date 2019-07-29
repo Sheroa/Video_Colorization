@@ -105,8 +105,8 @@ def Pre_train(opt):
     print('The overall number of classes:', len(trainset))
 
     # Define the dataloader
-    dataloader = DataLoader(trainset, batch_size = opt.batch_size, shuffle = True, num_workers = opt.num_workers, pin_memory = True)
-    # dataloader = utils.create_dataloader(trainset, opt)
+    # dataloader = DataLoader(trainset, batch_size = opt.batch_size, shuffle = True, num_workers = opt.num_workers, pin_memory = True)
+    dataloader = utils.create_dataloader(trainset, opt)
     
     # ----------------------------------------
     #                 Training
@@ -133,7 +133,7 @@ def Pre_train(opt):
             loss_G = 0
             loss_flow_1 = 0
             x_1 = in_part[0].cuda()
-            y_g_1 = torch.zeros(opt.batch_size, opt.out_channels, opt.resize_h, opt.resize_w)
+            p_g_1 = torch.zeros(opt.batch_size, opt.out_channels, opt.resize_h, opt.resize_w)
             # Adversarial ground truth
             valid = Tensor(np.ones((in_part[0].shape[0], 1, 30, 30)))
             fake = Tensor(np.zeros((in_part[0].shape[0], 1, 30, 30)))
@@ -144,21 +144,21 @@ def Pre_train(opt):
                 y_t = out_part[iter_frame].cuda()
                 # define the former frame  
                 if iter_frame == 0:            
-                    y_t_last = torch.zeros(opt.batch_size, opt.out_channels, opt.resize_h, opt.resize_w).cuda()
+                    p_t_last = torch.zeros(opt.batch_size, opt.out_channels, opt.resize_h, opt.resize_w).cuda()
                 elif iter_frame == 1:
-                    y_g_1 = p_t
-                    y_t_last = p_t
-                    y_g_1 = y_g_1.detach()
-                    y_g_1.requires_grad = False
-                    y_t_last = y_t_last.detach()
+                    p_g_1 = p_t
+                    p_t_last = p_t
+                    p_g_1 = p_g_1.detach()
+                    p_g_1.requires_grad = False
+                    p_t_last = p_t_last.detach()
                 else:
-                    y_t_last = p_t
-                    y_t_last = y_t_last.detach()
-                y_t_last.requires_grad = False
+                    p_t_last = p_t
+                    p_t_last = p_t_last.detach()
+                p_t_last.requires_grad = False
 
                 # Train Discriminator
                 # Generator output
-                p_t, lstm_state = generator(x_t, y_t_last, lstm_state)
+                p_t, lstm_state = generator(x_t, p_t_last, lstm_state)
                 lstm_state = utils.repackage_hidden(lstm_state)
 
                 #calculate optical flow and get a warp result
@@ -166,13 +166,17 @@ def Pre_train(opt):
                     x_t_last = in_part[iter_frame - 1].cuda()
                     # o_t_last_2_t range is [-20, +20]
                     o_t_last_2_t = pwcnet.PWCEstimate(flownet, x_t_last, x_t)
+                    # o_t_last_2_t_p = pwcnet.PWCEstimate(flownet, p_t_last, p_t)
+                    # loss_flow = criterion_L1(o_t_last_2_t_p, o_t_last_2_t)
                     # y_t_warp range is [0, 1]
-                    y_t_wrap = pwcnet.PWCNetBackward((y_t_last + 1) / 2, - o_t_last_2_t)
-                    loss_flow += criterion_L1(y_t_wrap, (p_t + 1) / 2)
+                    p_t_wrap = pwcnet.PWCNetBackward((p_t_last + 1) / 2, - o_t_last_2_t)
+                    loss_flow = criterion_L1(p_t_wrap, (p_t + 1) / 2)
                 if iter_frame > 1:
                     o_t_1_2_t = pwcnet.PWCEstimate(flownet, x_1, x_t)
-                    y_t_wrap_1 = pwcnet.PWCNetBackward((y_g_1 + 1) / 2, - o_t_1_2_t)
-                    loss_flow_1 += criterion_L1(y_t_wrap_1, (p_t + 1) / 2)
+                    # o_t_1_2_t_p = pwcnet.PWCEstimate(flownet, p_g_1, p_t)
+                    # loss_flow_1 = criterion_L1(o_t_1_2_t_p, o_t_1_2_t)
+                    p_t_wrap_1 = pwcnet.PWCNetBackward((p_g_1 + 1) / 2, - o_t_1_2_t)
+                    loss_flow_1 = criterion_L1(p_t_wrap_1, (p_t + 1) / 2)
 
                 # Fake samples
                 fake_scalar = discriminator(x_t, p_t.detach())
@@ -181,23 +185,23 @@ def Pre_train(opt):
                 true_scalar = discriminator(x_t, y_t)
                 loss_true = criterion_MSE(true_scalar, valid)
                 # Overall Loss and optimize
-                loss_D += 0.5 * (loss_fake + loss_true)
+                loss_D = 0.5 * (loss_fake + loss_true)
         
                 # Train Generator
                 # GAN Loss
                 fake_scalar = discriminator(x_t, p_t)
-                loss_G += criterion_MSE(fake_scalar, valid)
+                loss_G = criterion_MSE(fake_scalar, valid)
                 
                 # Pixel-level loss
-                loss_L1 += criterion_L1(p_t, y_t)
+                loss_L1 = criterion_L1(p_t, y_t)
 
 
-            # Overall Loss and optimize
-            loss = loss_L1 + opt.lambda_flow * loss_flow + opt.lambda_flow_long * loss_flow_1 + opt.lambda_gan * loss_G
-            loss.backward()
-            loss_D.backward()
-            optimizer_G.step()
-            optimizer_D.step()
+                # Overall Loss and optimize
+                loss = loss_L1 + opt.lambda_flow * loss_flow + opt.lambda_flow_long * loss_flow_1 + opt.lambda_gan * loss_G
+                loss.backward(retain_graph=True)
+                loss_D.backward()
+                optimizer_G.step()
+                optimizer_D.step()
 
             # Determine approximate time left
             iters_done = epoch * len(dataloader) + iteration
@@ -207,7 +211,7 @@ def Pre_train(opt):
 
             # Print log
             print("\r[Epoch %d/%d] [Batch %d/%d] [L1 Loss: %.4f] [Flow Loss: %.8f] [Flow Long Loss: %.8f] [G Loss: %.4f] [D Loss: %.4f] Time_left: %s" %
-                ((epoch + 1), opt.epochs, iteration, len(dataloader), loss_L1.item(), loss_flow.item(), loss_flow_1.item(), loss_G.item(), loss_D.item(), time_left))
+                ((epoch + 1), opt.epochs, iteration, len(dataloader), loss_L1.item(),loss_flow.item(), loss_flow_1.item(), loss_G.item(), loss_D.item(), time_left))
 
             # Save model at certain epochs or iterations
             save_model(opt, (epoch + 1), (iters_done + 1), len(dataloader), generator)
