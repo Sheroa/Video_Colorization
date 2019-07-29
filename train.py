@@ -9,7 +9,7 @@ if __name__ == "__main__":
     # ----------------------------------------
     parser = argparse.ArgumentParser()
     # Pre-train, saving, and loading parameters
-    parser.add_argument('--pre_train', type = bool, default = True, help = 'pre-train ot not')
+    parser.add_argument('--pre_train', type = bool, default = True, help = 'pre-train or not')
     parser.add_argument('--save_mode', type = str, default = 'epoch', help = 'saving mode, and by_epoch saving is recommended')
     parser.add_argument('--save_by_epoch', type = int, default = 50, help = 'interval between model checkpoints (by epochs)')
     parser.add_argument('--save_by_iter', type = int, default = 100000, help = 'interval between model checkpoints (by iterations)')
