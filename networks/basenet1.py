@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from networks.modules import *
+from .modules import *
 
 # ----------------------------------------
 #                Generator
@@ -23,11 +23,11 @@ class ConvLSTMGenerator_1in(nn.Module):
         self.E3_b = Conv2dLayer(opt.start_channels * 2, opt.start_channels * 2, 4, 2, 1, pad_type = opt.pad, norm = opt.norm)
         self.E4 = Conv2dLayer(opt.start_channels * 4, opt.start_channels * 4, 4, 2, 1, pad_type = opt.pad, norm = opt.norm)
         # Middle Encoder layers
-        self.R1 = ResConv2dLayer(opt.start_channels * 4, 3, 1, 1, pad_type = opt.pad, norm = opt.norm)
-        self.R2 = ResConv2dLayer(opt.start_channels * 4, 3, 1, 1, pad_type = opt.pad, norm = opt.norm)
-        self.R3 = ResConv2dLayer(opt.start_channels * 4, 3, 1, 1, pad_type = opt.pad, norm = opt.norm)
-        self.R4 = ResConv2dLayer(opt.start_channels * 4, 3, 1, 1, pad_type = opt.pad, norm = opt.norm)
-        self.R5 = ResConv2dLayer(opt.start_channels * 4, 3, 1, 1, pad_type = opt.pad, norm = opt.norm)
+        self.R1 = ResConv2dLayer(opt.start_channels * 4, opt.start_channels * 4, 3, 1, 1, pad_type = opt.pad, norm = opt.norm)
+        self.R2 = ResConv2dLayer(opt.start_channels * 4, opt.start_channels * 4, 3, 1, 1, pad_type = opt.pad, norm = opt.norm)
+        self.R3 = ResConv2dLayer(opt.start_channels * 4, opt.start_channels * 4, 3, 1, 1, pad_type = opt.pad, norm = opt.norm)
+        self.R4 = ResConv2dLayer(opt.start_channels * 4, opt.start_channels * 4, 3, 1, 1, pad_type = opt.pad, norm = opt.norm)
+        self.R5 = ResConv2dLayer(opt.start_channels * 4, opt.start_channels * 4, 3, 1, 1, pad_type = opt.pad, norm = opt.norm)
         self.ConvLSTM = ConvLSTM2d(opt.start_channels * 4, opt.start_channels * 4)
         # Decoder
         self.D1 = TransposeConv2dLayer(opt.start_channels * 4, opt.start_channels * 2, 3, 1, 1, pad_type = opt.pad, norm = opt.norm, scale_factor = 2)
@@ -93,3 +93,4 @@ class PatchDiscriminator70(nn.Module):
         x = self.final1(x)                                      # out: batch * 512 * 31 * 31
         x = self.final2(x)                                      # out: batch * 1 * 30 * 30
         return x
+        
