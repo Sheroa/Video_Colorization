@@ -32,14 +32,14 @@ if __name__ == "__main__":
     parser.add_argument('--lr_decrease_iter', type = int, default = 200000, help = 'lr decrease at certain epoch and its multiple')
     parser.add_argument('--lr_decrease_factor', type = float, default = 0.8, help = 'lr decrease factor')
     parser.add_argument('--num_workers', type = int, default = 4, help = 'number of cpu threads to use during batch generation')
-    parser.add_argument('--lambda_flow', type = float, default = 10, help = 'coefficient for Flow Loss')
+    parser.add_argument('--lambda_flow', type = float, default = 0, help = 'coefficient for Flow Loss')
     parser.add_argument('--lambda_gan', type = float, default = 0.01, help = 'coefficient for GAN Loss')
     # Initialization parameters
     parser.add_argument('--pad', type = str, default = 'reflect', help = 'pad type of networks')
     parser.add_argument('--norm', type = str, default = 'in', help = 'normalization type of networks')
     parser.add_argument('--in_channels', type = int, default = 3, help = '1 for colorization, 3 for other tasks')
     parser.add_argument('--out_channels', type = int, default = 3, help = '2 for colorization, 3 for other tasks')
-    parser.add_argument('--start_channels', type = int, default = 32, help = 'start channels for the main stream of generator')
+    parser.add_argument('--start_channels', type = int, default = 64, help = 'start channels for the main stream of generator')
     parser.add_argument('--init_type', type = str, default = 'kaiming', help = 'initialization type of networks')
     parser.add_argument('--init_gain', type = float, default = 0.02, help = 'initialization gain of networks')
     # GAN parameters
@@ -47,7 +47,7 @@ if __name__ == "__main__":
     parser.add_argument('--additional_training_d', type = int, default = 1, help = 'number of training D more times than G')
     # Dataset parameters
     parser.add_argument('--task', type = str, default = 'colorization', help = 'the specific task of the system')
-    parser.add_argument('--baseroot', type = str, default = 'C:\\Users\\yzzha\\Desktop\\dataset\\VideoColor', help = 'color image baseroot')
+    parser.add_argument('--baseroot', type = str, default = '/home/alien/Documents/zyz/vid2vidGeneration/data', help = 'color image baseroot')
     parser.add_argument('--iter_frames', type = int, default = 10, help = 'number of iter_frames')
     parser.add_argument('--resize_h', type = int, default = 256, help = 'resize height')
     parser.add_argument('--resize_w', type = int, default = 256, help = 'resize width')
