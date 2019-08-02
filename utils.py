@@ -1,19 +1,13 @@
-#python lib
-import os
-import math
 import numpy as np
-
-#torch lib
 import torch
 import torch.nn as nn
 import torchvision as tv
-from torch.utils.data.sampler import Sampler
-from torch.utils.data import DataLoader
-
-#own lib
+import os
 import networks
 import networks.basenet as basenet
 import networks.pwcnet as pwcnet
+from torch.utils.data.sampler import Sampler
+from torch.utils.data import DataLoader
 
 # There are many functions:
 # ----------------------------------------
@@ -73,6 +67,7 @@ import networks.pwcnet as pwcnet
 # In: path
 # Out: txt
 # ----------------------------------------
+
 
 class SubsetSeSampler(Sampler):
 

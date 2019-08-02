@@ -5,6 +5,7 @@ import torch.nn as nn
 from torchvision import transforms
 from skimage import color
 import os
+os.environ["CUDA_VISIBLE_DEVICES"] = '1'
 import utils
 
 # ----------------------------------------
@@ -113,20 +114,20 @@ def video_generation(baseroot, saveroot, imglist, colornet):
         out_rgb = out_rgb.astype(np.uint8)
         img_rgb = Image.fromarray(out_rgb)
         numName, typeName = imglist[i].split('.')
-        savename = saveroot + numName + '_500_old.'+ typeName
+        savename = saveroot + numName + '_300_long.'+ typeName
         img_rgb.save(savename)
 
 if __name__ == "__main__":
 
     # Define the basic variables
     root = './'
-    colornet = torch.load('./models/batchSize1_startChanne32/Pre_colorization_epoch500_bs1.pth')
+    colornet = torch.load('./models/add_long_flow/Pre_colorization_epoch300_bs1_lambda100.pth')
     # Define generation variables
-    txtname = './Varidation/names.txt'
+    # txtname = './Varidation/names.txt'
     # imglist = utils.text_readlines(txtname)
-    baseroot = './Varidation/dataset/'
-    saveroot = './Varidation/result_epoch500_old/'
-    imglist = get_jpgs('./Varidation/dataset')
+    baseroot = './Varidation/kite-surf/'
+    saveroot = './Varidation/result_kite-surf_epoch300_long_lm100/'
+    imglist = get_jpgs('./Varidation/kite-surf')
     # Choose a task:
     choice = 'video_generation'
     save = True
