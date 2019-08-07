@@ -4,26 +4,31 @@ import torch
 import torch.nn as nn
 from torchvision import transforms
 from skimage import color
-
-import network
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = '1'
+import utils
+import cv2
 
 # ----------------------------------------
 #                 Testing
 # ----------------------------------------
 
-def text_readlines(filename):
-    # Try to read a txt file and return a list.Return [] if there was a mistake.
-    try:
-        file = open(filename, 'r')
-    except IOError:
-        error = []
-        return error
-    content = file.readlines()
-    # This for loop deletes the EOF (like \n)
+def get_jpgs(path):
+    # read a folder, return the image name
+    ret = []
+    numList = []
+    for root, dirs, files in os.walk(path):
+        files.sort()
+        for filespath in files:
+            ret.append(filespath)
+    return ret
+def text_save(content, filename, mode = 'a'):
+    # save a list to a txt
+    # Try to save a list variable in txt file.
+    file = open(filename, mode)
     for i in range(len(content)):
-        content[i] = content[i][:len(content[i])-1]
+        file.write(str(content[i]) + '\n')
     file.close()
-    return content
 
 def test(rgb, colornet):
     out_rgb = colornet(rgb)
@@ -32,7 +37,7 @@ def test(rgb, colornet):
     out_rgb = (out_rgb * 0.5 + 0.5) * 255
     out_rgb = out_rgb.astype(np.uint8)
     return out_rgb
-    
+
 def getImage(root):
     transform = transforms.Compose([
             transforms.ToTensor(),
@@ -41,9 +46,9 @@ def getImage(root):
 
     img = Image.open(root).convert('RGB')
     #img = img.crop((256, 0, 512, 256))
-    rgb = img.resize((256, 256), Image.ANTIALIAS)
+    rgb = img.resize((320, 320), Image.ANTIALIAS)
     rgb = transform(rgb)
-    rgb = rgb.reshape([1, 3, 256, 256]).cuda()
+    rgb = rgb.reshape([1, 3, 320, 320]).cuda()
     return rgb
 
 def comparison(root, colornet):
@@ -84,23 +89,50 @@ def generation(baseroot, saveroot, imglist, colornet):
         img_rgb.save(savename)
     print('Done!')
 
+def video_test(x_t, y_t_last, lstm_state, colornet):
+    out_rgb, lstm_state = colornet(x_t, y_t_last, lstm_state)
+    out_rgb = out_rgb.cpu().detach().numpy().reshape([3, 256, 256])
+    out_rgb = out_rgb.transpose(1, 2, 0)
+    out_rgb = (out_rgb * 0.5 + 0.5) * 255
+    out_rgb = out_rgb.astype(np.uint8)
+    return out_rgb, lstm_state
+
+def video_generation(baseroot, saveroot, imglist, colornet):
+    temp = cv2.imread(baseroot + imglist[0])
+    y_t_last = torch.zeros(1, 3, 320, 320).cuda()
+    lstm_state = None
+    for i in range(len(imglist)):
+        #Read raw image
+        readname = baseroot + imglist[i]
+        x_t = getImage(readname)
+        #Forword propagation
+        y_t_last, lstm_state = colornet(x_t, y_t_last, lstm_state)
+        lstm_state = utils.repackage_hidden(lstm_state)
+        # Save
+        y_t_last = y_t_last.detach()
+        out_rgb = y_t_last.cpu()
+        out_rgb = out_rgb.numpy().reshape([3, 320, 320]).transpose(1, 2, 0)
+        out_rgb = (out_rgb * 0.5 + 0.5) * 255
+        out_rgb = out_rgb.astype(np.uint8)
+        img_rgb = Image.fromarray(out_rgb)
+        numName, typeName = imglist[i].split('.')
+        savename = saveroot + numName + '_550.'+ typeName
+        img_rgb.save(savename)
+
 if __name__ == "__main__":
 
     # Define the basic variables
-    root = 'C:\\Users\\ZHAO Yuzhi\\Desktop\\dataset\\ILSVRC2012_val_256\\ILSVRC2012_val_00001196.JPEG'
-    colornet = torch.load('Pre_image_epoch4_bs16.pth').cuda()
-    
-    '''
+    root = './'
+    colornet = torch.load('./models/bs2_sc32_gan_of_8/Pre_colorization_epoch100_bs1_GAN0_os5_ol3.pth')
     # Define generation variables
-    txtname = 'ILSVRC2012_val_name.txt'
-    imglist = text_readlines(txtname)
-    baseroot = 'D:\\datasets\\ILSVRC2012\\ILSVRC2012_val_256\\'
-    saveroot = 'D:\\datasets\\ILSVRC2012\\ILSVRC2012_val_256_colorization\\'
-    '''
-
+    # txtname = './Varidation/names.txt'
+    # imglist = utils.text_readlines(txtname)
+    baseroot = '/home/alien/Documents/zyz/fast_blind_video_consistency/data/test/input/DAVIS/camel/'
+    saveroot = './Varidation/result_camel_epoch100_bs1__cs1_gan_os5_ol3/'
+    imglist = get_jpgs('/home/alien/Documents/zyz/fast_blind_video_consistency/data/test/input/DAVIS/camel/')
     # Choose a task:
-    choice = 'colorization'
-    save = False
+    choice = 'video_generation'
+    save = True
 
     # comparison: Compare the colorization output and ground truth
     # colorization: Show the colorization as original size
@@ -117,4 +149,5 @@ if __name__ == "__main__":
             img_rgb.save('./' + imgname)
     if choice == 'generation':
         generation(baseroot, saveroot, imglist, colornet)
-    
+    if choice == 'video_generation':
+        video_generation(baseroot, saveroot, imglist, colornet)

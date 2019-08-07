@@ -196,8 +196,3 @@ def get_relative_dirs(path):
             a = a.split('\\')[-2] + '\\' + a.split('\\')[-1]
             ret.append(a)
     return ret
-
-'''
-ret = get_relative_dirs('C:\\Users\\yzzha\\Desktop\\dataset\\VideoColor')
-text_save(ret, 'videocolor.txt')
-'''
