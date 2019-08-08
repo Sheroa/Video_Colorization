@@ -9,9 +9,10 @@ if __name__ == "__main__":
     # ----------------------------------------
     parser = argparse.ArgumentParser()
     # Pre-train, saving, and loading parameters
-    parser.add_argument('--pre_train', type = bool, default = False, help = 'pre-train or not')
+    parser.add_argument('--pre_train', type = bool, default = True, help = 'pre-train or not')
+    parser.add_argument('--singleFrame', type = bool, default = True, help = 'single frame training or video frames training')
     parser.add_argument('--save_mode', type = str, default = 'epoch', help = 'saving mode, and by_epoch saving is recommended')
-    parser.add_argument('--save_by_epoch', type = int, default = 50, help = 'interval between model checkpoints (by epochs)')
+    parser.add_argument('--save_by_epoch', type = int, default = 1, help = 'interval between model checkpoints (by epochs)')
     parser.add_argument('--save_by_iter', type = int, default = 100000, help = 'interval between model checkpoints (by iterations)')
     parser.add_argument('--save_name_mode', type = bool, default = True, help = 'True for concise name, and False for exhaustive name')
     parser.add_argument('--load_name', type = str, default = './models/bs1_sc32_gan_pre/Pre_colorization_epoch500_bs1_GAN0_os2_ol2', help = 'load the pre-trained model with certain epoch')
@@ -21,9 +22,9 @@ if __name__ == "__main__":
     parser.add_argument('--cudnn_benchmark', type = bool, default = True, help = 'True for unchanged input data type')
     # Training parameters
     parser.add_argument('--epochs', type = int, default = 10, help = 'number of epochs of training')
-    parser.add_argument('--batch_size', type = int, default = 32, help = 'size of the batches')
-    parser.add_argument('--lr_g', type = float, default = 0.0002, help = 'Adam: learning rate for G')
-    parser.add_argument('--lr_d', type = float, default = 0.0002, help = 'Adam: learning rate for D')
+    parser.add_argument('--batch_size', type = int, default = 8, help = 'size of the batches')
+    parser.add_argument('--lr_g', type = float, default = 0.0001, help = 'Adam: learning rate for G')
+    parser.add_argument('--lr_d', type = float, default = 0.0001, help = 'Adam: learning rate for D')
     parser.add_argument('--b1', type = float, default = 0.5, help = 'Adam: decay of first order momentum of gradient')
     parser.add_argument('--b2', type = float, default = 0.999, help = 'Adam: decay of second order momentum of gradient')
     parser.add_argument('--weight_decay', type = float, default = 0, help = 'weight decay for optimizer')
@@ -35,13 +36,13 @@ if __name__ == "__main__":
     parser.add_argument('--mask_para', type=float, default=50.0, help='coefficient for computing visibility mask')
     parser.add_argument('--lambda_flow', type = int, default = 10, help = 'coefficient for Flow Loss')
     parser.add_argument('--lambda_flow_long', type = int, default = 10, help = 'coefficient for Flow Loss')
-    parser.add_argument('--lambda_gan', type = float, default = 0.01, help = 'coefficient for GAN Loss')
+    parser.add_argument('--lambda_gan', type = float, default = 0, help = 'coefficient for GAN Loss')
     # Initialization parameters
     parser.add_argument('--pad', type = str, default = 'reflect', help = 'pad type of networks')
     parser.add_argument('--norm', type = str, default = 'in', help = 'normalization type of networks')
     parser.add_argument('--in_channels', type = int, default = 3, help = '1 for colorization, 3 for other tasks')
     parser.add_argument('--out_channels', type = int, default = 3, help = '2 for colorization, 3 for other tasks')
-    parser.add_argument('--start_channels', type = int, default = 32, help = 'start channels for the main stream of generator')
+    parser.add_argument('--start_channels', type = int, default = 64, help = 'start channels for the main stream of generator')
     parser.add_argument('--init_type', type = str, default = 'kaiming', help = 'initialization type of networks')
     parser.add_argument('--init_gain', type = float, default = 0.02, help = 'initialization gain of networks')
     # GAN parameters
@@ -70,10 +71,13 @@ if __name__ == "__main__":
     # ----------------------------------------
     #       Choose pre / continue train
     # ----------------------------------------
-    if opt.pre_train:
+    if opt.singleFrame:
         print('Pre-training single frame colorization settings: [Epochs: %d] [Batch size: %d] [Learning rate: %.4f] [Saving mode: %s]'
             % (opt.epochs, opt.batch_size, opt.lr_g, opt.save_mode))
-        trainer.Pre_train_single(opt)
+        if opt.gan_mode:
+            trainer.Train_single(opt)
+        else:
+            trainer.Pre_train_single(opt)
     else:
         print('Continue-training settings: [Epochs: %d] [Batch size: %d] [Learning rate: %.4f] [Saving mode: %s]'
             % (opt.epochs, opt.batch_size, opt.lr_g, opt.save_mode))

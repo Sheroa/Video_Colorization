@@ -15,24 +15,51 @@ class ConvLSTMGenerator_1in(nn.Module):
         # b: last frame y_t-1
         # c1: last frame x_t-1; c2: second last frame x_t-2; d1: next frame x_t+1; d2: second next frame x_t+2              Pendding!!!
         # Seperate Encoder layers
-        self.E1_a = Conv2dLayer(opt.in_channels, opt.start_channels, 7, 1, 3, pad_type = opt.pad, norm = 'none')
-        self.E1_b = Conv2dLayer(opt.out_channels, opt.start_channels, 7, 1, 3, pad_type = opt.pad, norm = 'none')
-        self.E2_a = Conv2dLayer(opt.start_channels, opt.start_channels * 2, 4, 2, 1, pad_type = opt.pad, norm = opt.norm)
-        self.E2_b = Conv2dLayer(opt.start_channels, opt.start_channels * 2, 4, 2, 1, pad_type = opt.pad, norm = opt.norm)
-        self.E3_a = Conv2dLayer(opt.start_channels * 2, opt.start_channels * 2, 4, 2, 1, pad_type = opt.pad, norm = opt.norm)
-        self.E3_b = Conv2dLayer(opt.start_channels * 2, opt.start_channels * 2, 4, 2, 1, pad_type = opt.pad, norm = opt.norm)
+        self.E1_a = nn.Sequential(
+            Conv2dLayer(opt.in_channels, opt.start_channels, 3, 1, 1, pad_type = opt.pad, norm = 'none'),
+            Conv2dLayer(opt.start_channels, opt.start_channels, 3, 1, 1, pad_type = opt.pad, norm = opt.norm),
+        )
+        self.E1_b = nn.Sequential(
+            Conv2dLayer(opt.out_channels, opt.start_channels, 3, 1, 1, pad_type = opt.pad, norm = 'none'),
+            Conv2dLayer(opt.start_channels, opt.start_channels, 3, 1, 1, pad_type = opt.pad, norm = opt.norm),
+        )
+        self.E2_a = nn.Sequential(
+            Conv2dLayer(opt.start_channels, opt.start_channels * 2, 4, 2, 1, pad_type = opt.pad, norm = opt.norm),
+            Conv2dLayer(opt.start_channels * 2, opt.start_channels * 2, 3, 1, 1, pad_type = opt.pad, norm = opt.norm),
+        )
+        self.E2_b = nn.Sequential(
+            Conv2dLayer(opt.start_channels, opt.start_channels * 2, 4, 2, 1, pad_type = opt.pad, norm = opt.norm),
+            Conv2dLayer(opt.start_channels * 2, opt.start_channels * 2, 3, 1, 1, pad_type = opt.pad, norm = opt.norm),
+        )
+        self.E3_a = nn.Sequential(
+            Conv2dLayer(opt.start_channels * 2, opt.start_channels * 2, 4, 2, 1, pad_type = opt.pad, norm = opt.norm),
+            Conv2dLayer(opt.start_channels * 2, opt.start_channels * 2, 3, 1, 1, pad_type = opt.pad, norm = opt.norm),
+        )
+        self.E3_b = nn.Sequential(
+            Conv2dLayer(opt.start_channels * 2, opt.start_channels * 2, 4, 2, 1, pad_type = opt.pad, norm = opt.norm),
+            Conv2dLayer(opt.start_channels * 2, opt.start_channels * 2, 3, 1, 1, pad_type = opt.pad, norm = opt.norm),
+        )
         self.E4 = Conv2dLayer(opt.start_channels * 4, opt.start_channels * 4, 4, 2, 1, pad_type = opt.pad, norm = opt.norm)
         # Middle Encoder layers
-        self.R1 = ResConv2dLayer(opt.start_channels * 4, 3, 1, 1, pad_type = opt.pad, norm = opt.norm)
-        self.R2 = ResConv2dLayer(opt.start_channels * 4, 3, 1, 1, pad_type = opt.pad, norm = opt.norm)
-        self.R3 = ResConv2dLayer(opt.start_channels * 4, 3, 1, 1, pad_type = opt.pad, norm = opt.norm)
-        self.R4 = ResConv2dLayer(opt.start_channels * 4, 3, 1, 1, pad_type = opt.pad, norm = opt.norm)
-        self.R5 = ResConv2dLayer(opt.start_channels * 4, 3, 1, 1, pad_type = opt.pad, norm = opt.norm)
+        self.R1 = ResConv2dLayer(opt.start_channels * 4, 3, 1, 2, 2, pad_type = opt.pad, norm = opt.norm)
+        self.R2 = ResConv2dLayer(opt.start_channels * 4, 3, 1, 2, 2, pad_type = opt.pad, norm = opt.norm)
+        self.R3 = ResConv2dLayer(opt.start_channels * 4, 3, 1, 2, 2, pad_type = opt.pad, norm = opt.norm)
+        self.R4 = ResConv2dLayer(opt.start_channels * 4, 3, 1, 2, 2, pad_type = opt.pad, norm = opt.norm)
+        self.R5 = ResConv2dLayer(opt.start_channels * 4, 3, 1, 2, 2, pad_type = opt.pad, norm = opt.norm)
         self.ConvLSTM = ConvLSTM2d(opt.start_channels * 4, opt.start_channels * 4)
         # Decoder
-        self.D1 = TransposeConv2dLayer(opt.start_channels * 4, opt.start_channels * 2, 3, 1, 1, pad_type = opt.pad, norm = opt.norm, scale_factor = 2)
-        self.D2 = TransposeConv2dLayer(opt.start_channels * 4, opt.start_channels * 2, 3, 1, 1, pad_type = opt.pad, norm = opt.norm, scale_factor = 2)
-        self.D3 = TransposeConv2dLayer(opt.start_channels * 4, opt.start_channels * 1, 3, 1, 1, pad_type = opt.pad, norm = opt.norm, scale_factor = 2)
+        self.D1 = nn.Sequential(
+            TransposeConv2dLayer(opt.start_channels * 4, opt.start_channels * 2, 3, 1, 1, pad_type = opt.pad, norm = opt.norm, scale_factor = 2),
+            Conv2dLayer(opt.start_channels * 2, opt.start_channels * 2, 3, 1, 1, pad_type = opt.pad, norm = opt.norm),
+        )
+        self.D2 = nn.Sequential(
+            TransposeConv2dLayer(opt.start_channels * 4, opt.start_channels * 2, 3, 1, 1, pad_type = opt.pad, norm = opt.norm, scale_factor = 2),
+            Conv2dLayer(opt.start_channels * 2, opt.start_channels * 2, 3, 1, 1, pad_type = opt.pad, norm = opt.norm),
+        )
+        self.D3 = nn.Sequential(
+            TransposeConv2dLayer(opt.start_channels * 4, opt.start_channels, 3, 1, 1, pad_type = opt.pad, norm = opt.norm, scale_factor = 2),
+            Conv2dLayer(opt.start_channels, opt.start_channels, 3, 1, 1, pad_type = opt.pad, norm = opt.norm),
+        )
         self.D4 = Conv2dLayer(opt.start_channels * 2, opt.out_channels, 7, 1, 3, pad_type = opt.pad, activation = 'tanh', norm = 'none')
 
     def forward(self, a, b, prev_state):
