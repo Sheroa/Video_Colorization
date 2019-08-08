@@ -5,3 +5,4 @@ models/*
 __pycache__*
 *.pth
 *.pyc
+networks/__pycache__/*
