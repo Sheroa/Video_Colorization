@@ -7,9 +7,6 @@
 1. [Dataset](#dataset)
 1. [Apply Pre-trained Models](#apply-pre-trained-models)
 1. [Training and Testing](#training-and-testing)
-1. [Evaluation](#evaluation)
-1. [Image Processing Algorithms](#image-processing-algorithms)
-1. [Acknowledge](#acknowledge)
 
 
 ### Introduction
