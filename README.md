@@ -1,6 +1,4 @@
-# vid2vidGeneration
-# LBVC with PWC-Net
-
+# Video_Colorization
 
 ### Table of Contents
 1. [Introduction](#introduction)
